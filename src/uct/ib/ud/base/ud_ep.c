@@ -15,6 +15,7 @@
 
 #include <uct/api/uct_def.h>
 #include <uct/ib/base/ib_verbs.h>
+#include <uct/ib/base/ib_device.h>
 #include <ucs/debug/memtrack_int.h>
 #include <ucs/debug/log.h>
 #include <ucs/time/time.h>
@@ -414,6 +415,9 @@ UCS_CLASS_INIT_FUNC(uct_ud_ep_t, uct_ud_iface_t *iface,
     self->path_index = UCT_EP_PARAMS_GET_PATH_INDEX(params);
     uct_ud_ep_reset(self);
     uct_ud_iface_add_ep(iface, self);
+    ucs_info("[UCX IB UD] EP Created: Device=%s, QPN=0x%x, EP_ID=%u, Protocol=UD",
+             uct_ib_device_name(uct_ib_iface_device(&iface->super)),
+             iface->qp->qp_num, self->ep_id);
     self->tx.tick = iface->tx.tick;
     ucs_wtimer_init(&self->timer, uct_ud_ep_timer);
     ucs_arbiter_group_init(&self->tx.pending.group);
@@ -475,6 +479,9 @@ static UCS_CLASS_CLEANUP_FUNC(uct_ud_ep_t)
     uct_ud_iface_t *iface = ucs_derived_of(self->super.super.iface, uct_ud_iface_t);
 
     ucs_trace_func("ep=%p id=%d conn_sn=%d", self, self->ep_id, self->conn_sn);
+    ucs_info("[UCX IB UD] EP Destroyed: Device=%s, QPN=0x%x, EP_ID=%u, Protocol=UD",
+             uct_ib_device_name(uct_ib_iface_device(&iface->super)),
+             iface->qp->qp_num, self->ep_id);
 
     uct_ud_enter(iface);
 

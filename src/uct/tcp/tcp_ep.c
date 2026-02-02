@@ -1887,6 +1887,15 @@ ucs_status_t uct_tcp_ep_am_short(uct_ep_h uct_ep, uint8_t am_id, uint64_t header
         return status;
     }
 
+    /* Log TCP transmission details */
+    if (ep->conn_state == UCT_TCP_EP_CONN_STATE_CONNECTED) {
+        char ip_str[UCS_SOCKADDR_STRING_LEN];
+        ucs_trace("[UCX TCP TX] Sending AM Short: Device=%s, Length=%u, AMID=%u, Dest=%s",
+                 iface->if_name, payload_length, am_id,
+                 ucs_sockaddr_str((struct sockaddr *)&ep->peer_addr,
+                                 ip_str, sizeof(ip_str)));
+    }
+
     UCT_TL_EP_STAT_OP(&ep->super, AM, SHORT, payload_length);
 
     return status;

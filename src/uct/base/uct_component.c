@@ -31,10 +31,20 @@ UCT_TL_DECL(sysv)
 
 void UCS_F_CTOR uct_init()
 {
+    ucs_info("========================================");
+    ucs_info("Initializing UCX Transport Layers (TLs)");
+    ucs_info("========================================");
+    ucs_info("Starting self transport layer");
     uct_self_init();
+    ucs_info("Starting TCP transport layer");
     uct_tcp_init();
+    ucs_info("Starting SYSV IPC transport layer");
     uct_sysv_init();
+    ucs_info("Starting POSIX shared memory transport layer");
     uct_posix_init();
+    ucs_info("========================================");
+    ucs_info("UCX Transport Layer Initialization Done");
+    ucs_info("========================================");
 }
 
 void UCS_F_DTOR uct_cleanup()
@@ -69,6 +79,7 @@ ucs_status_t uct_query_components(uct_component_h **components_p,
         *(components++) = component;
         ucs_vfs_obj_add_dir(NULL, component, "uct/component/%s",
                             component->name);
+        ucs_info("[UCX] Registered Component: %s", component->name);
     }
 
     return UCS_OK;

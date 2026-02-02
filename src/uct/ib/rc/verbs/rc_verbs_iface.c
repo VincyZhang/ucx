@@ -172,6 +172,11 @@ static unsigned uct_rc_verbs_iface_progress(void *arg)
     unsigned count;
 
     count = uct_rc_verbs_iface_poll_rx_common(iface);
+    if (count > 0) {
+        ucs_trace("[UCX IB RC RX] RX Completions: Device=%s, Count=%u, Protocol=RC",
+                  uct_ib_device_name(uct_ib_iface_device(&iface->super.super)),
+                  count);
+    }
     if (!uct_rc_iface_poll_tx(&iface->super, count)) {
         return count;
     }

@@ -1626,9 +1626,11 @@ void UCS_F_CTOR uct_ib_init()
 
     ucs_list_add_head(&uct_ib_ops, &UCT_IB_MD_OPS_NAME(verbs).list);
     uct_component_register(&uct_ib_component);
+    ucs_info("[UCX IB] Registering InfiniBand component with %zu transport layers", ucs_static_array_size(uct_ib_tls));
 
     for (i = 0; i < ucs_static_array_size(uct_ib_tls); i++) {
         uct_tl_register(&uct_ib_component, uct_ib_tls[i]);
+        ucs_info("[UCX IB] Registered IB transport layer: %s", uct_ib_tls[i]->name);
     }
 
     UCS_MODULE_FRAMEWORK_LOAD(uct_ib, 0);
