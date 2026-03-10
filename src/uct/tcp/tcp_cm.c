@@ -53,6 +53,14 @@ void uct_tcp_cm_change_conn_state(uct_tcp_ep_t *ep,
             uct_tcp_iface_outstanding_dec(iface);
         }
 
+        /* Print communication device and protocol information when connected */
+        ucs_info("[UCX TCP] Connected: LocalDevice=%s, LocalAddr=%s, RemoteAddr=%s, Protocol=TCP",
+                iface->if_name,
+                ucs_sockaddr_str((struct sockaddr *)&iface->config.ifaddr,
+                                str_local_addr, UCS_SOCKADDR_STRING_LEN),
+                ucs_sockaddr_str((struct sockaddr *)&ep->peer_addr,
+                                str_remote_addr, UCS_SOCKADDR_STRING_LEN));
+
         if (ep->flags & UCT_TCP_EP_FLAG_CTX_TYPE_TX) {
             /* Progress possibly pending TX operations */
             uct_tcp_ep_pending_queue_dispatch(ep);
@@ -68,6 +76,15 @@ void uct_tcp_cm_change_conn_state(uct_tcp_ep_t *ep,
             (old_conn_state == UCT_TCP_EP_CONN_STATE_CONNECTING) ||
             (old_conn_state == UCT_TCP_EP_CONN_STATE_WAITING_ACK)) {
             uct_tcp_iface_outstanding_dec(iface);
+        }
+
+        /* Print communication device and protocol information when closed */
+        if (old_conn_state == UCT_TCP_EP_CONN_STATE_CONNECTED) {
+            ucs_info("[UCX TCP] Disconnected: LocalDevice=%s, RemoteAddr=%s, Protocol=TCP, PreviousState=%s",
+                    iface->if_name,
+                    ucs_sockaddr_str((struct sockaddr *)&ep->peer_addr,
+                                    str_remote_addr, UCS_SOCKADDR_STRING_LEN),
+                    uct_tcp_ep_cm_state[old_conn_state].name);
         }
 
         if ((old_conn_state == UCT_TCP_EP_CONN_STATE_ACCEPTING) ||

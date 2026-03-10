@@ -11,6 +11,7 @@
 
 #include <uct/api/uct.h>
 #include <uct/ib/base/ib_iface.h>
+#include <uct/ib/base/ib_device.h>
 #include <uct/base/uct_md.h>
 #include <uct/base/uct_log.h>
 #include <ucs/debug/log.h>
@@ -18,10 +19,26 @@
 #include <ucs/type/class.h>
 #include <string.h>
 #include <arpa/inet.h> /* For htonl */
+#include <ucs/memory/memtype_cache.h>
 
 #include <uct/ib/base/ib_log.h>
 
 #include <uct/ib/ud/base/ud_iface.h>
+
+static UCS_F_ALWAYS_INLINE const char *
+uct_ud_verbs_mem_type_str(const void *address, size_t length)
+{
+    ucs_memory_info_t mem_info;
+    ucs_status_t status;
+    if ((address != NULL) && (length > 0)) {
+        status = ucs_memtype_cache_lookup(address, length, &mem_info);
+        ucs_info("[UCX MEMTYPE]: MemType=%s", ucs_memory_type_names[mem_info.type]);
+        if (status == UCS_OK) return ucs_memory_type_names[mem_info.type];
+    }
+
+    return ucs_memory_type_names[UCS_MEMORY_TYPE_UNKNOWN];
+}
+
 #include <uct/ib/ud/base/ud_ep.h>
 #include <uct/ib/ud/base/ud_def.h>
 
@@ -179,6 +196,7 @@ ucs_status_t uct_ud_verbs_ep_am_short(uct_ep_h tl_ep, uint8_t id, uint64_t hdr,
     uct_ud_send_skb_t *skb;
     uct_ud_am_short_hdr_t *am_hdr;
     ucs_status_t status;
+    const char *mem_type;
 
     UCT_CHECK_LENGTH(sizeof(uct_ud_neth_t) + sizeof(hdr) + length,
                      0, iface->super.config.max_inline, "am_short");
@@ -202,7 +220,12 @@ ucs_status_t uct_ud_verbs_ep_am_short(uct_ep_h tl_ep, uint8_t id, uint64_t hdr,
 
     uct_ud_iface_complete_tx_inl(&iface->super, &ep->super, skb,
                                  am_hdr+1, buffer, length);
+    mem_type = uct_ud_verbs_mem_type_str(buffer, length);
     UCT_TL_EP_STAT_OP(&ep->super.super, AM, SHORT, sizeof(hdr) + length);
+    ucs_info("[UCX IB UD TX] Sending AM: Device=%s, QPN=0x%x, EP_ID=%u, Length=%u, AMID=%u, MemType=%s",
+              uct_ib_device_name(uct_ib_iface_device(&iface->super.super)),
+              iface->super.qp->qp_num, ep->super.ep_id,
+              sizeof(hdr) + length, id, mem_type);
     uct_ud_leave(&iface->super);
     return UCS_OK;
 }
@@ -214,6 +237,7 @@ static ucs_status_t uct_ud_verbs_ep_am_short_iov(uct_ep_h tl_ep, uint8_t id,
     uct_ud_verbs_iface_t *iface = ucs_derived_of(tl_ep->iface, uct_ud_verbs_iface_t);
     uct_ud_send_skb_t *skb;
     ucs_status_t status;
+    const char *mem_type;
 
     UCT_CHECK_IOV_SIZE(iovcnt, (size_t)iface->config.max_send_sge,
                        "uct_ud_verbs_ep_am_short_iov");
@@ -237,7 +261,14 @@ static ucs_status_t uct_ud_verbs_ep_am_short_iov(uct_ep_h tl_ep, uint8_t id,
 
     uct_ud_iov_to_skb(skb, iov, iovcnt);
     uct_ud_iface_complete_tx_skb(&iface->super, &ep->super, skb);
+    mem_type = (iovcnt > 0) ?
+            uct_ud_verbs_mem_type_str(iov[0].buffer, iov[0].length) :
+            uct_ud_verbs_mem_type_str(NULL, 0);
     UCT_TL_EP_STAT_OP(&ep->super.super, AM, SHORT, uct_iov_total_length(iov, iovcnt));
+    ucs_info("[UCX IB UD TX] Sending AM IOV: Device=%s, QPN=0x%x, EP_ID=%u, Length=%zu, AMID=%u, MemType=%s",
+              uct_ib_device_name(uct_ib_iface_device(&iface->super.super)),
+              iface->super.qp->qp_num, ep->super.ep_id,
+              uct_iov_total_length(iov, iovcnt), id, mem_type);
     uct_ud_leave(&iface->super);
 
     return UCS_OK;
@@ -253,6 +284,7 @@ static ssize_t uct_ud_verbs_ep_am_bcopy(uct_ep_h tl_ep, uint8_t id,
     uct_ud_send_skb_t *skb;
     ucs_status_t status;
     size_t length;
+    const char *mem_type;
 
     uct_ud_enter(&iface->super);
 
@@ -268,7 +300,11 @@ static ssize_t uct_ud_verbs_ep_am_bcopy(uct_ep_h tl_ep, uint8_t id,
     ucs_assert(iface->tx.wr_skb.num_sge == 1);
     uct_ud_verbs_ep_tx_skb(iface, ep, skb, 0, INT_MAX);
     uct_ud_iface_complete_tx_skb(&iface->super, &ep->super, skb);
+    mem_type = uct_ud_verbs_mem_type_str(skb->neth + 1, length);
     UCT_TL_EP_STAT_OP(&ep->super.super, AM, BCOPY, length);
+    ucs_info("[UCX IB UD TX] Sending AM BCOPY: Device=%s, QPN=0x%x, EP_ID=%u, Length=%zu, AMID=%u, MemType=%s",
+              uct_ib_device_name(uct_ib_iface_device(&iface->super.super)),
+              iface->super.qp->qp_num, ep->super.ep_id, length, id, mem_type);
     uct_ud_leave(&iface->super);
     return length;
 }
@@ -283,6 +319,7 @@ uct_ud_verbs_ep_am_zcopy(uct_ep_h tl_ep, uint8_t id, const void *header,
                                                  uct_ud_verbs_iface_t);
     uct_ud_send_skb_t *skb;
     ucs_status_t status;
+    const char *mem_type;
 
     UCT_CHECK_IOV_SIZE(iovcnt, (size_t)iface->config.max_send_sge,
                        "uct_ud_verbs_ep_am_zcopy");
@@ -313,8 +350,15 @@ uct_ud_verbs_ep_am_zcopy(uct_ep_h tl_ep, uint8_t id, const void *header,
 
     uct_ud_skb_set_zcopy_desc(skb, iov, iovcnt, comp);
     uct_ud_iface_complete_tx_skb(&iface->super, &ep->super, skb);
+    mem_type = (iovcnt > 0) ?
+            uct_ud_verbs_mem_type_str(iov[0].buffer, iov[0].length) :
+            uct_ud_verbs_mem_type_str(NULL, 0);
     UCT_TL_EP_STAT_OP(&ep->super.super, AM, ZCOPY, header_length +
                       uct_iov_total_length(iov, iovcnt));
+    ucs_info("[UCX IB UD TX] Sending AM ZCOPY: Device=%s, QPN=0x%x, EP_ID=%u, Length=%zu, AMID=%u, MemType=%s",
+              uct_ib_device_name(uct_ib_iface_device(&iface->super.super)),
+              iface->super.qp->qp_num, ep->super.ep_id,
+              header_length + uct_iov_total_length(iov, iovcnt), id, mem_type);
     uct_ud_leave(&iface->super);
     return UCS_INPROGRESS;
 }
@@ -330,6 +374,7 @@ ucs_status_t uct_ud_verbs_ep_put_short(uct_ep_h tl_ep,
     uct_ud_send_skb_t *skb;
     uct_ud_put_hdr_t *put_hdr;
     uct_ud_neth_t *neth;
+    const char *mem_type;
 
     UCT_CHECK_LENGTH(sizeof(*neth) + sizeof(*put_hdr) + length,
                      0, iface->super.config.max_inline, "put_short");
@@ -357,7 +402,11 @@ ucs_status_t uct_ud_verbs_ep_put_short(uct_ep_h tl_ep,
     skb->len = iface->tx.sge[0].length;
     uct_ud_iface_complete_tx_inl(&iface->super, &ep->super, skb,
                                  put_hdr+1, buffer, length);
+    mem_type = uct_ud_verbs_mem_type_str(buffer, length);
     UCT_TL_EP_STAT_OP(&ep->super.super, PUT, SHORT, length);
+    ucs_info("[UCX IB UD TX] RDMA Put Short: Device=%s, QPN=0x%x, EP_ID=%u, Length=%u, MemType=%s",
+              uct_ib_device_name(uct_ib_iface_device(&iface->super.super)),
+              iface->super.qp->qp_num, ep->super.ep_id, length, mem_type);
     uct_ud_leave(&iface->super);
     return UCS_OK;
 }
@@ -447,6 +496,12 @@ uct_ud_verbs_iface_poll_rx(uct_ud_verbs_iface_t *iface, int is_async)
 
     UCS_STATS_UPDATE_COUNTER(iface->super.super.stats,
                              UCT_IB_IFACE_STAT_RX_COMPLETION, num_wcs);
+
+    if (num_wcs > 0) {
+        ucs_trace("[UCX IB UD RX] RX Completions: Device=%s, QPN=0x%x, Count=%u, Protocol=UD",
+                  uct_ib_device_name(uct_ib_iface_device(&iface->super.super)),
+                  iface->super.qp->qp_num, num_wcs);
+    }
 
     UCT_IB_IFACE_VERBS_FOREACH_RXWQE(&iface->super.super, i, packet, wc, num_wcs) {
         if (!uct_ud_iface_check_grh(&iface->super, packet,

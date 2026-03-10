@@ -603,9 +603,9 @@ ucp_memh_register_internal(ucp_context_h context, ucp_mem_h memh,
                     address, length, ucs_status_string(status));
         } else {
             ucs_trace("uct_md_mem_query(dmabuf address %p length %zu) returned "
-                      "fd %d offset %zu sys_dev %u",
+                      "fd %d offset %zu sys_dev %u mem_type %d",
                       address, length, mem_attr.dmabuf_fd,
-                      mem_attr.dmabuf_offset, mem_attr.sys_dev);
+                      mem_attr.dmabuf_offset, mem_attr.sys_dev, mem_attr.mem_type);
 
             dmabuf_md_map            = context->dmabuf_reg_md_map;
             reg_params.dmabuf_fd     = mem_attr.dmabuf_fd;

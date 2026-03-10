@@ -89,6 +89,8 @@ uct_tcp_md_open(uct_component_t *component, const char *md_name,
     }
 
     *md_p = &tcp_md->super;
+    ucs_info("[UCX TCP] Memory Domain Opened: Component=%s, Name=%s, AF_Prio_Count=%u, Bridge_Enable=%d",
+             UCT_TCP_NAME, md_name, tcp_md->config.af_prio_count, tcp_md->config.bridge_enable);
     return UCS_OK;
 
 err_free:

@@ -57,6 +57,7 @@ static UCS_F_ALWAYS_INLINE ucs_memtype_cache_t *ucs_memtype_cache_get_global()
     ucs_status_t status;
 
     if (ucs_global_opts.enable_memtype_cache == UCS_NO) {
+        ucs_trace("memtype_cache is disabled");
         return NULL;
     }
 
@@ -332,6 +333,7 @@ UCS_PROFILE_FUNC(ucs_status_t, ucs_memtype_cache_lookup,
     ucs_status_t status;
 
     if (memtype_cache == NULL) {
+        ucs_trace("memtype_cache not found, return UCS_ERR_UNSUPPORTED");
         return UCS_ERR_UNSUPPORTED;
     }
 

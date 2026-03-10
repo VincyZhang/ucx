@@ -2758,14 +2758,15 @@ void ucp_memory_detect_slowpath(ucp_context_h context, const void *address,
     for (i = 0; i < context->num_mem_type_detect_mds; ++i) {
         tl_md  = &context->tl_mds[context->mem_type_detect_mds[i]];
         status = uct_md_mem_query(tl_md->md, address, length, &mem_attr);
+
+        ucs_trace_req("address %p length %zu: md %s detected as type '%s' %s, ucx status %s",
+                      address, length, tl_md->rsc.md_name,
+                      ucs_memory_type_names[mem_attr.mem_type],
+                      ucs_topo_sys_device_get_name(mem_attr.sys_dev),
+                      ucs_status_string(status));
         if (status != UCS_OK) {
             continue;
         }
-
-        ucs_trace_req("address %p length %zu: md %s detected as type '%s' %s",
-                      address, length, tl_md->rsc.md_name,
-                      ucs_memory_type_names[mem_attr.mem_type],
-                      ucs_topo_sys_device_get_name(mem_attr.sys_dev));
         mem_info->type         = mem_attr.mem_type;
         mem_info->sys_dev      = mem_attr.sys_dev;
         mem_info->base_address = mem_attr.base_address;

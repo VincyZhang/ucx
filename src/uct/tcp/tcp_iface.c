@@ -855,6 +855,11 @@ static UCS_CLASS_INIT_FUNC(uct_tcp_iface_t, uct_md_h md, uct_worker_h worker,
         goto err_cleanup_event_set;
     }
 
+    ucs_info("[UCX TCP] Interface Initialized: Device=%s, Protocol=TCP, AF_Count=%u, "
+             "TX_Size=%zu, RX_Size=%zu",
+             self->if_name, tcp_md->config.af_prio_count,
+             self->config.tx_seg_size, self->config.rx_seg_size);
+
     return UCS_OK;
 
 err_cleanup_event_set:
@@ -1048,6 +1053,13 @@ ucs_status_t uct_tcp_query_devices(uct_md_h md,
     *num_devices_p = num_devices;
     *devices_p     = devices;
     status         = UCS_OK;
+
+    /* Print discovered TCP network devices */
+    ucs_info("[UCX TCP] Query Devices Results:");
+    ucs_info("  - Total Network Devices Found: %u", num_devices);
+    for (i = 0; i < num_devices; i++) {
+        ucs_info("    * Device Name: %s, Type: NET", devices[i].name);
+    }
 
 out_release:
     ucs_carray_for_each(entry, entries, n) {
